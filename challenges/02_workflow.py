@@ -10,6 +10,9 @@ import json
 import sys
 import time
 from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ==========================================
 # 配置区域
@@ -36,14 +39,21 @@ class LongArticleAgent:
         print(f"📋 正在规划主题: {self.topic}...")
         
         # TODO: 编写 Prompt 让模型生成纯 JSON 列表
-        prompt = f"请为主题《{self.topic}》生成一个包含3个章节的大纲..."
+        system_prompt = """
+        你是一个专业的写作规划师。请根据主题生成文章大纲。
+        【约束】：
+        必须输出纯 JSON 格式，不得包含任何 Markdown 代码块或解释性文字。
+        【格式】：
+        {\"chapters\": [\"章节1标题\", \"章节2标题\", \"章节3标题\"]}
+        """
+        user_prompt = f"请为主题《{self.topic}》生成一个包含3个章节的大纲..."
         
         try:
             response = client.chat.completions.create(
                 model=MODEL_NAME,  # 使用配置的模型名
                 messages=[
-                    {"role": "system", "content": "你是一个专业的写作规划师，只输出 JSON Array。"},
-                    {"role": "user", "content": prompt}
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.7
@@ -86,7 +96,10 @@ class LongArticleAgent:
             
             # TODO: 构造 Prompt，核心在于 Context 的注入
             prompt = f"""
-            你是一位专业作家。请撰写章节："{chapter}"。
+            你是一位专业作家。你是一位专业作家。当前正在撰写《{self.topic}》的第 {i+1} 章节。
+            
+            【当前章节】：
+            {chapter}
             
             【前情提要】：
             {previous_summary}
@@ -94,6 +107,7 @@ class LongArticleAgent:
             要求：
             1. 内容充实，字数约 300 字。
             2. 必须承接【前情提要】的逻辑，不要重复。
+            3. 使用专业且具感染力的语气。
             """
             
             try:
